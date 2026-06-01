@@ -1,61 +1,67 @@
 # srvcs-samplestddev
 
-The sample standard deviation service of the srvcs.cloud distributed standard
-library.
+## Name
 
-Its single concern: **the sample standard deviation of a list of numbers**,
-returned as an `f64`. It does no arithmetic of its own. It is a pure
-orchestrator over two dependencies:
+| Field | Value |
+| --- | --- |
+| Service | `srvcs-samplestddev` |
+| Slug | `samplestddev` |
+| Repository | `srvcs/samplestddev` |
+| Package | `srvcs-samplestddev` |
+| Kind | `orchestrator` |
 
-```text
-v      = samplevariance(values).result    # one call to srvcs-samplevariance
-result = sqrt(v).result                   # one call to srvcs-sqrt
-```
+## Function
 
-So `samplestddev([1,2,3,4,5]) ~= 1.5811388300841898` — the sample variance is
-`2.5`, and its square root is the sample standard deviation.
+statistics: sample standard deviation
+
+## Dependencies
+
+| Dependency | Repository |
+| --- | --- |
+| `srvcs-samplevariance` | [srvcs/samplevariance](https://github.com/srvcs/samplevariance) |
+| `srvcs-sqrt` | [srvcs/sqrt](https://github.com/srvcs/sqrt) |
 
 ## API
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/` | Service identity, concern, and dependency list |
-| `POST` | `/` | Compute the sample standard deviation of the numbers in `values` |
-| `GET` | `/healthz` `/readyz` `/metrics` `/openapi.json` | srvcs service standard surface |
+| `GET` | `/` | Service identity |
+| `POST` | `/` | Evaluate the service function |
+| `GET` | `/healthz` | Liveness probe |
+| `GET` | `/readyz` | Readiness probe |
+| `GET` | `/metrics` | Prometheus metrics |
+| `GET` | `/openapi.json` | OpenAPI document |
 
-```sh
-curl -s -X POST localhost:8080/ -H 'content-type: application/json' -d '{"values": [1, 2, 3, 4, 5]}'
-# {"values":[1,2,3,4,5],"result":1.5811388300841898}
-```
+## Inputs
 
-Responses:
+| Name | Type | Required |
+| --- | --- | --- |
+| `values` | `json[]` | yes |
 
-- `200 {"values": [...], "result": x}` — evaluated; `result` is an `f64`.
-- `422` — a dependency rejected the input (forwarded from `srvcs-samplevariance`).
-- `500` — a dependency returned a malformed result.
-- `503` — a dependency is unavailable.
+## Outputs
 
-## Dependencies
-
-- [`srvcs-samplevariance`](https://github.com/srvcs/samplevariance)
-- [`srvcs-sqrt`](https://github.com/srvcs/sqrt)
-
-This service is an orchestrator: it never calls `srvcs-isnumber` directly.
-Input validation propagates from its dependencies — an invalid sample (e.g. too
-short for a sample variance, or a non-numeric element) is caught by
-`srvcs-samplevariance`, whose `422` is forwarded verbatim.
+| Name | Type |
+| --- | --- |
+| `values` | `json[]` |
+| `result` | `number` |
 
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `SRVCS_BIND_ADDR` | `0.0.0.0:8080` | Bind address |
-| `SRVCS_SAMPLEVARIANCE_URL` | `http://127.0.0.1:8090` | Base URL of `srvcs-samplevariance` |
-| `SRVCS_SQRT_URL` | `http://127.0.0.1:8091` | Base URL of `srvcs-sqrt` |
 | `SRVCS_ENV` | `development` | Environment label for logs |
 | `RUST_LOG` | `info,tower_http=info` | Tracing filter |
+| `SRVCS_SAMPLEVARIANCE_URL` | `` | Base URL for srvcs-samplevariance |
+| `SRVCS_SQRT_URL` | `http://127.0.0.1:8091` | Base URL for srvcs-sqrt |
 
-## Local checks
+## Error Behavior
+
+- `422` means the request could not be evaluated for the documented input shape.
+- `503` means a required dependency was unavailable or returned an unexpected response.
+- Dependency validation errors are forwarded when this service delegates validation.
+
+## Local Checks
 
 ```sh
 cargo fmt --check
@@ -63,11 +69,8 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Orchestration tests stand up mock dependencies in-process that **actually
-compute** (the real sample variance, then the real square root), so the
-composition is genuinely exercised against asserted cases — e.g.
-`samplestddev([1,2,3,4,5]) ~= 1.5811388300841898` — with a `1e-9` tolerance. See
-[`srvcs/platform`](https://github.com/srvcs/platform) for the shared standard.
+See the [srvcs service standard](https://github.com/srvcs/platform/blob/main/STANDARD.md) for the full operational contract.
 
-> Note: the `cargoHash` in `flake.nix` is inherited from the template and must be
-> refreshed with a `nix build` before the Nix gates pass.
+## Metadata
+
+Machine-readable service metadata lives in `srvcs.yaml`. Keep it aligned with this README when the service contract changes.
